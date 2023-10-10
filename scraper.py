@@ -35,6 +35,28 @@ DIA_URL = {
 
 }
 
+CARREFOUR_URL = {
+
+    'picos_integrales': 'https://www.carrefour.es/supermercado/colines-integrales-carrefour-250-g/R-prod970952/p',
+    'aceitunas': 'https://www.carrefour.es/supermercado/aceitunas-verdes-manzanilla-sin-hueso-carrefour-400-g/R-VC4AECOMM-488058/p',
+    'huevos': 'https://www.carrefour.es/supermercado/huevos-frescos-carrefour-el-mercado-24-ud/R-VC4AECOMM-307898/p',
+    'pimientos': 'https://www.carrefour.es/supermercado/pimiento-verde-italiano-1-kg-aprox/R-536001616/p',
+    'pizza-atún': 'https://www.carrefour.es/supermercado/pizza-de-atun-carrefour-350-g/R-prod590834/p'
+
+}
+
+MERCADONA_URL = {
+
+    'picos_integrales': 'https://tienda.mercadona.es/api/products/86215/',
+    'aceitunas': 'https://tienda.mercadona.es/api/products/80016/?lang=es&wh=svq1',
+    'huevos': 'https://tienda.mercadona.es/api/products/31002/?lang=es&wh=svq1',
+    'pimientos': 'https://tienda.mercadona.es/api/products/69443/?lang=es&wh=svq1',
+    'pizza-atún': 'https://tienda.mercadona.es/api/products/63582/?lang=es&wh=svq1'
+
+}
+
+
+
 
 
 
@@ -111,8 +133,60 @@ async def scrape_dia():
         products.append(dicts)
     
     return print(products)
+
+
+async def scrape_carrefour():
+    
+    products = []
+    for key in CARREFOUR_URL:
+        response =  httpx.get(CARREFOUR_URL[key], headers=HEADERS)
+        html = response.content.decode('utf-8')
+        parser = HTMLParser(html)
+        title = parser.css_first('h1.product-header__name').text().strip()
+        price = parser.css_first('span.buybox__price').text().strip()
+        price_kg = parser.css_first('div.buybox__price-per-unit').text().strip()
         
+        dicts = {
+            'title': title,
+            'price': price,
+            'pricec_kg': price_kg
+        }
+        
+        products.append(dicts)
     
+    return print(products)
+
+async def scrape_mercadona():
     
-# asyncio.run(scrape_el_jamon())
-asyncio.run(scrape_dia())
+    HEADERS = {
+
+    'Accept': 'application/json',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.60',
+
+    }
+    
+    products = []
+    for key in MERCADONA_URL:
+        response =  httpx.get(MERCADONA_URL[key], headers=HEADERS)
+        data = response.json()
+        title =  data['display_name']
+        price = data['price_instructions']['unit_price'] + ' eur'
+        price_kg = data['price_instructions']['bulk_price'] + ' eur'
+    
+        dicts = {
+            'title' : title,
+            'precio' : price,
+            'price_kg' : price_kg
+        }
+        
+        products.append(dicts)
+    
+    return print(products)
+
+asyncio.run(scrape_mercadona())        
+asyncio.run(scrape_carrefour())   
+asyncio.run(scrape_dia())    
+asyncio.run(scrape_el_jamon())
+
