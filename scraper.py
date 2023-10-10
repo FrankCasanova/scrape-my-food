@@ -72,18 +72,23 @@ async def scrape_el_jamon():
             await screen.goto(EL_JAMON_URL[key])
             button = screen.get_by_role("button", name="Ver precio")
             button_count = await button.count()
+            
             if button_count > 0:
-                await screen.get_by_role("button", name="Ver precio").click()
-                await screen.locator("#seleccionarCp").click()
-                await screen.locator("#seleccionarCp").fill("21004")
-                await screen.get_by_role("button", name="Aceptar").click()
-                await screen.wait_for_timeout(1000)
-                await screen.goto(EL_JAMON_URL[key])
+                await screen.click("#button")
+                await screen.fill("#seleccionarCp", "21004")
+                await screen.click("#aceptarPorCp")
+                # await screen.wait_for_timeout(1000)
+                await screen.wait_for_selector('div.texto-porKilo')
+                # await screen.goto(EL_JAMON_URL[key])
                 title = await screen.query_selector('h1.tituloProducto')
-                price = await screen.query_selector('span.d-importe')
+                price_ofert = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > span")
                 price_kg = await screen.query_selector('div.texto-porKilo')
                 title = await title.inner_text()
-                price = await price.inner_text()
+                if price_ofert:
+                    price = await price_ofert.inner_text()
+                else:
+                    original_price = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-original > span")
+                    price = await price.inner_text()
                 price_kg = await price_kg.inner_text()
                 el_jamon = {
 
@@ -92,13 +97,18 @@ async def scrape_el_jamon():
                     'price_kg': price_kg,
 
                 }
-
                 products.append(el_jamon)
+                continue
+                
             title = await screen.query_selector('h1.tituloProducto')
-            price = await screen.query_selector('span.d-importe')
+            price_ofert = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > span")
             price_kg = await screen.query_selector('div.texto-porKilo')
             title = await title.inner_text()
-            price = await price.inner_text()
+            if price_ofert:
+                price = await price_ofert.inner_text()
+            else:
+                original_price = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-original > span")
+                price = await price.inner_text()
             price_kg = await price_kg.inner_text()
             el_jamon = {
 
@@ -185,8 +195,8 @@ async def scrape_mercadona():
     
     return print(products)
 
-asyncio.run(scrape_mercadona())        
-asyncio.run(scrape_carrefour())   
-asyncio.run(scrape_dia())    
+# asyncio.run(scrape_mercadona())        
+# asyncio.run(scrape_carrefour())   
+# asyncio.run(scrape_dia())    
 asyncio.run(scrape_el_jamon())
 
