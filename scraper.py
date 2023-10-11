@@ -1,7 +1,6 @@
 import httpx
 from selectolax.parser import HTMLParser
 from dataclasses import dataclass, asdict
-from playwright.async_api import async_playwright
 import asyncio
 
 
@@ -28,7 +27,7 @@ EL_JAMON_URL = {
 DIA_URL = {
 
     'picos_integrales': 'https://www.dia.es/panes-harinas-y-masas/picos-y-panes-tostados/p/59304?analytics_list_id=S0001&analytics_list_name=search&index=1',
-    'aceitunas': 'https://www.dia.es/panes-harinas-y-masas/picos-y-panes-tostados/p/59304?analytics_list_id=S0001&analytics_list_name=search&index=1',
+    'aceitunas': 'https://www.dia.es/patatas-fritas-encurtidos-y-frutos-secos/aceitunas-y-encurtidos/p/46239?analytics_list_id=S0001&analytics_list_name=search&index=3',
     'huevos': 'https://www.dia.es/leche-huevos-y-mantequilla/huevos/p/274009?analytics_list_id=S0001&analytics_list_name=search&index=2',
     'pimientos': 'https://www.dia.es/verduras/tomates-pimientos-y-pepinos/p/116?analytics_list_id=S0001&analytics_list_name=search&index=1',
     'pizza-atún': 'https://www.dia.es/pizzas-y-platos-preparados/pizzas/p/30480?analytics_list_id=S0001&analytics_list_name=search&index=6'
@@ -55,73 +54,47 @@ MERCADONA_URL = {
 
 }
 
-
+@dataclass
+class Product:
+    title: str
+    price: str
+    price_kg: str
 
 
 
 
 async def scrape_el_jamon():
 
-    async with async_playwright() as p:
-
-        browser = await p.chromium.launch()
-        context = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.60')
-        screen = await context.new_page()
+    async with httpx.AsyncClient(headers=HEADERS, verify=False) as client:
+        
+        await client.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+        await client.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+        
         products = []
         for key in EL_JAMON_URL:
-            await screen.goto(EL_JAMON_URL[key])
-            button = screen.get_by_role("button", name="Ver precio")
-            button_count = await button.count()
+            response =  await client.get(EL_JAMON_URL[key])
+        
+            html = response.text
             
-            if button_count > 0:
-                await screen.click("#button")
-                await screen.fill("#seleccionarCp", "21004")
-                await screen.click("#aceptarPorCp")
-                # await screen.wait_for_timeout(1000)
-                await screen.wait_for_selector('div.texto-porKilo')
-                # await screen.goto(EL_JAMON_URL[key])
-                title = await screen.query_selector('h1.tituloProducto')
-                price_ofert = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > span")
-                price_kg = await screen.query_selector('div.texto-porKilo')
-                title = await title.inner_text()
-                if price_ofert:
-                    price = await price_ofert.inner_text()
-                else:
-                    original_price = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-original > span")
-                    price = await price.inner_text()
-                price_kg = await price_kg.inner_text()
-                el_jamon = {
-
-                    'title': title,
-                    'price': price,
-                    'price_kg': price_kg,
-
-                }
-                products.append(el_jamon)
-                continue
-                
-            title = await screen.query_selector('h1.tituloProducto')
-            price_ofert = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > span")
-            price_kg = await screen.query_selector('div.texto-porKilo')
-            title = await title.inner_text()
-            if price_ofert:
-                price = await price_ofert.inner_text()
+            parse = HTMLParser(html)
+            
+            title = parse.css_first('h1.tituloProducto').text()
+            price_rebajado = parse.css_first("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > span")
+            if price_rebajado:
+                price = price_rebajado.text()
             else:
-                original_price = await screen.query_selector("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-original > span")
-                price = await price.inner_text()
-            price_kg = await price_kg.inner_text()
-            el_jamon = {
-
-                'title': title,
-                'price': price,
-                'price_kg': price_kg,
-
-            }
-
-            products.append(el_jamon)
+                price_original = parse.css_first("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-original > span")
+                price = price_original.text()
+                
+            price_kg = parse.css_first('div.texto-porKilo').text()
+        
+            product = Product(title,price,price)
+            products.append(product)
             
-        return print(products)
-        await browser.close()
+        for product in products:
+            print(asdict(product))        
+        return products
+        
 
 async def scrape_dia():
     
@@ -134,15 +107,12 @@ async def scrape_dia():
         price = parser.css_first('p.buy-box__active-price').text().strip()
         price_kg = parser.css_first('p.buy-box__price-per-unit').text().strip()
         
-        dicts = {
-            'title': title,
-            'price': price,
-            'pricec_kg': price_kg
-        }
-        
-        products.append(dicts)
-    
-    return print(products)
+        product = Product(title,price,price)
+        products.append(product)
+            
+    for product in products:
+        print(asdict(product))        
+    return products
 
 
 async def scrape_carrefour():
@@ -156,15 +126,12 @@ async def scrape_carrefour():
         price = parser.css_first('span.buybox__price').text().strip()
         price_kg = parser.css_first('div.buybox__price-per-unit').text().strip()
         
-        dicts = {
-            'title': title,
-            'price': price,
-            'pricec_kg': price_kg
-        }
+        product = Product(title,price,price)
+        products.append(product)
         
-        products.append(dicts)
-    
-    return print(products)
+    for product in products:
+        print(asdict(product))        
+    return products
 
 async def scrape_mercadona():
     
@@ -185,18 +152,15 @@ async def scrape_mercadona():
         price = data['price_instructions']['unit_price'] + ' eur'
         price_kg = data['price_instructions']['bulk_price'] + ' eur'
     
-        dicts = {
-            'title' : title,
-            'precio' : price,
-            'price_kg' : price_kg
-        }
+        product = Product(title,price,price)
+        products.append(product)
         
-        products.append(dicts)
-    
-    return print(products)
+    for product in products:
+        print(asdict(product))        
+    return products
 
-# asyncio.run(scrape_mercadona())        
-# asyncio.run(scrape_carrefour())   
-# asyncio.run(scrape_dia())    
+asyncio.run(scrape_mercadona())        
+asyncio.run(scrape_carrefour())   
+asyncio.run(scrape_dia())    
 asyncio.run(scrape_el_jamon())
 
