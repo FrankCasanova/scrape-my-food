@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from fastapi import FastAPI, HTTPException
 from model import *
 from scraper import *
@@ -10,10 +10,8 @@ app = FastAPI()
 async def get_mercadona_products():
     """
     Returns a list of `Product` models scraped from the Mercadona website.
-
     Raises:
         HTTPException: If the scraping process fails.
-
     Returns:
         List[Product]: A list of `Product` models.
     """
@@ -27,10 +25,8 @@ async def get_mercadona_products():
 async def get_carrefour_products():
     """
     Returns a list of `Product` models scraped from the Carrefour website.
-
     Raises:
         HTTPException: If the scraping process fails.
-
     Returns:
         List[Product]: A list of `Product` models.
     """
@@ -44,10 +40,8 @@ async def get_carrefour_products():
 async def get_el_jamon_products():
     """
     Returns a list of `Product` models scraped from the El Jamón website.
-
     Raises:
         HTTPException: If the scraping process fails.
-
     Returns:
         List[Product]: A list of `Product` models.
     """
@@ -61,10 +55,8 @@ async def get_el_jamon_products():
 async def get_dia_products():
     """
     Returns a list of `Product` models scraped from the Día website.
-
     Raises:
         HTTPException: If the scraping process fails.
-
     Returns:
         List[Product]: A list of `Product` models.
     """
@@ -79,10 +71,8 @@ async def get_dia_products():
 async def get_prices():
     """
     Returns a list of lists of `Product` models scraped from different stores.
-
     Raises:
-        HTTPException: If the scraping process fails.
-
+        HTTPException: If the scraping process fails
     Returns:
         List[List[Product]]: A list of lists of `Product` models.
     """

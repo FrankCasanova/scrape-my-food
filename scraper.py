@@ -11,7 +11,6 @@ import re
 
 async def scrape_el_jamon():
     """Scrapes the El Jamón supermarket website for product information.
-
     Returns:
         A list of `Product` objects, containing the product title, price, and price per kilogram.
     """
@@ -65,7 +64,6 @@ async def scrape_el_jamon():
 
 async def scrape_dia():
     """Scrapes the Día supermarket website for product information.
-
     Returns:
         A list of `Product` objects, containing the product title, price, and price per kilogram.
     """
@@ -112,7 +110,6 @@ async def scrape_dia():
 
 async def scrape_carrefour():
     """Scrapes the Carrefour supermarket website for product information.
-
     Returns:
         A list of `Product` objects, containing the product title, price, and price per kilogram.
     """
@@ -150,7 +147,6 @@ async def scrape_carrefour():
 
 async def scrape_mercadona():
     """Scrapes the Mercadona supermarket website for product information.
-
     Returns:
         A list of `Product` objects, containing the product title, price, and price per kilogram.
     """
