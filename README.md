@@ -2,6 +2,10 @@
 
 This project is a web scraper that fetches product data from various supermarket websites. It's built with Python and uses the FastAPI framework for the web server.
 
+## Instalation
+```bash
+pip install -r requirements.txt
+```
 ## Features
 
 The application provides the following endpoints:
