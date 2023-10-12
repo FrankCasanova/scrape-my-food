@@ -3,6 +3,13 @@ from fastapi import FastAPI, HTTPException
 from model import *
 from scraper import *
 import asyncio
+import httpx
+from config import *
+import logging
+import time
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
@@ -19,11 +26,15 @@ async def get_mercadona_products():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [await scrape_url_mercadona(MERCADONA_URL[url]) for url in MERCADONA_URL]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS_MERCADONA) as client:
+        try:
+            list_products = [await scrape_url_mercadona(client=client, url=MERCADONA_URL[url], logger=logger) for url in MERCADONA_URL]
+            end_time = time.time()
+            logger.info(f'Time to scrape Mercadona: {end_time - start_time}')
+            return list_products
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/carrefour",
          status_code=200,
@@ -41,12 +52,16 @@ async def get_carrefour_products():
     Raises:
         HTTPException: If an exception occurs during the scraping process.
     """
-    try:
-        list_products = [await scrape_url_carrefour(CARREFOUR_URL[url]) for url in CARREFOUR_URL]
-        return list_products
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        try:
+            list_products = [await scrape_url_carrefour(client=client, url=CARREFOUR_URL[url], logger=logger) for url in CARREFOUR_URL]
+            end_time = time.time()
+            logger.info(f'Time to scrape Carrefour: {end_time - start_time}')
+            return list_products
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/el-jamon",
         response_model=List[Product],
@@ -60,11 +75,17 @@ async def get_el_jamon_products():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [await scrape_url_el_jamon(EL_JAMON_URL[url]) for url in EL_JAMON_URL]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS,verify=False) as client:
+        await client.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+        await client.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+        try:
+            list_products = [await scrape_url_el_jamon(client=client, url=EL_JAMON_URL[url], logger=logger) for url in EL_JAMON_URL]
+            end_time = time.time()
+            logger.info(f'Time to scrape El Jamón: {end_time - start_time}')
+            return list_products
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/dia", response_model=List[Product])
 async def get_dia_products():
@@ -75,11 +96,15 @@ async def get_dia_products():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [await scrape_url_dia(DIA_URL[url]) for url in DIA_URL]  
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        try:
+            list_products = [await scrape_url_dia(client=client, url=DIA_URL[url], logger=logger) for url in DIA_URL] 
+            end_time = time.time() 
+            logger.info(f'Time to scrape Día: {end_time - start_time}')
+            return list_products
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/prices",
@@ -94,42 +119,63 @@ async def get_prices():
     Returns:
         List[List[Product]]: A list of lists of `Product` models.
     """
-    try:
-        list_products = []
-        for url in MERCADONA_URL:
-            list_products.append(await scrape_url_mercadona(MERCADONA_URL[url]))
-        for url in CARREFOUR_URL:
-            list_products.append(await scrape_url_carrefour(CARREFOUR_URL[url]))
-        for url in EL_JAMON_URL:
-            list_products.append(await scrape_url_el_jamon(EL_JAMON_URL[url]))
-        for url in DIA_URL:
-            list_products.append(await scrape_url_dia(DIA_URL[url]))
-        
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        client_EL_JAMON = httpx.AsyncClient(headers=HEADERS,verify=False)
+        await client_EL_JAMON.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+        await client_EL_JAMON.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+        try:
+            list_products = []
+            for url in MERCADONA_URL:
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL[url], logger=logger))
+            for url in CARREFOUR_URL:
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL[url], logger=logger))
+            for url in EL_JAMON_URL:
+                list_products.append(await scrape_url_el_jamon(client=client_EL_JAMON, url=EL_JAMON_URL[url], logger=logger))
+            for url in DIA_URL:
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL[url], logger=logger))
+                
+            await client_EL_JAMON.aclose()
+            end_time = time.time()
+            logger.info(f'Time to scrape Mercadona: {end_time - start_time}')
+            return list_products
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 #quiero un endpoint que devuelva el el titulo, precio y precio por kilo de los "picos_integrales" de todos los supermercados
+from typing import List
+
 @app.get("/picos-integrales", response_model=List[Product])
-async def get_picos_integrales():
+async def get_picos_integrales() -> List[Product]:
     """
-    Returns a list of `Product` models containing the title, price, and price per kilo
-    of the "picos_integrales" from all supermarkets.
-    Raises:
-        HTTPException: If the scraping process fails.
+    Retrieves a list of products for 'picos-integrales' from various supermarkets.
+    
     Returns:
-        List[Product]: A list of `Product` models.
+        List[Product]: A list of products for 'picos-integrales' from different supermarkets.
+        
+    Raises:
+        HTTPException: If there is an error while retrieving the products.
     """
-    try:
-        list_products = [
-            await scrape_url_mercadona(MERCADONA_URL['picos_integrales']),
-            await scrape_url_carrefour(CARREFOUR_URL['picos_integrales']),
-            await scrape_url_el_jamon(EL_JAMON_URL['picos_integrales']),
-            await scrape_url_dia(DIA_URL['picos_integrales'])
-        ]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        async with httpx.AsyncClient(headers=HEADERS, verify=False) as client_el_jamon:
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+
+            try:
+                list_products: List[Product] = []
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL['picos_integrales'], logger=logger))
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL['picos_integrales'], logger=logger))
+                list_products.append(await scrape_url_el_jamon(client=client_el_jamon, url=EL_JAMON_URL['picos_integrales'], logger=logger))
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL['picos_integrales'], logger=logger))
+                end_time = time.time()
+                return list_products
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/aceitunas', response_model=List[Product])
 async def get_aceitunas():
@@ -141,16 +187,24 @@ async def get_aceitunas():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [
-            await scrape_url_mercadona(MERCADONA_URL['aceitunas']),
-            await scrape_url_carrefour(CARREFOUR_URL['aceitunas']),
-            await scrape_url_el_jamon(EL_JAMON_URL['aceitunas']),
-            await scrape_url_dia(DIA_URL['aceitunas'])
-        ]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        async with httpx.AsyncClient(headers=HEADERS, verify=False) as client_el_jamon:
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+            try:
+                list_products: List[Product] = []
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL['aceitunas'], logger=logger))
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL['aceitunas'], logger=logger))
+                list_products.append(await scrape_url_el_jamon(client=client_el_jamon, url=EL_JAMON_URL['aceitunas'], logger=logger))
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL['aceitunas'], logger=logger))
+                end_time = time.time()
+                logger.info(f'Time to scrape Mercadona: {end_time - start_time}')
+                return list_products
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/pimientos', response_model=List[Product])
 async def get_pimientos():
@@ -162,16 +216,24 @@ async def get_pimientos():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [
-            await scrape_url_mercadona(MERCADONA_URL['pimientos']),
-            await scrape_url_carrefour(CARREFOUR_URL['pimientos']),
-            await scrape_url_el_jamon(EL_JAMON_URL['pimientos']),
-            await scrape_url_dia(DIA_URL['pimientos'])
-        ]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        async with httpx.AsyncClient(headers=HEADERS, verify=False) as client_el_jamon:
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+            try:
+                list_products: List[Product] = []
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL['pimientos'], logger=logger))
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL['pimientos'], logger=logger))
+                list_products.append(await scrape_url_el_jamon(client=client_el_jamon, url=EL_JAMON_URL['pimientos'], logger=logger))
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL['pimientos'], logger=logger))
+                end_time = time.time()
+                logger.info(f'Time to scrape pimientos: {end_time - start_time}')
+                return list_products
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/huevos', response_model=List[Product])
 async def get_huevos():
@@ -183,16 +245,24 @@ async def get_huevos():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [
-            await scrape_url_mercadona(MERCADONA_URL['huevos']),
-            await scrape_url_carrefour(CARREFOUR_URL['huevos']),
-            await scrape_url_el_jamon(EL_JAMON_URL['huevos']),
-            await scrape_url_dia(DIA_URL['huevos'])
-        ]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        async with httpx.AsyncClient(headers=HEADERS, verify=False) as client_el_jamon:
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+            try:
+                list_products: List[Product] = []
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL['huevos'], logger=logger))
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL['huevos'], logger=logger))
+                list_products.append(await scrape_url_el_jamon(client=client_el_jamon, url=EL_JAMON_URL['huevos'], logger=logger))
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL['huevos'], logger=logger))
+                end_time = time.time()
+                logger.info(f'Time to scrape Huevos: {end_time - start_time}')
+                return list_products
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/pizza-atún', response_model=List[Product])
 async def get_pizza_atun():
@@ -204,16 +274,24 @@ async def get_pizza_atun():
     Returns:
         List[Product]: A list of `Product` models.
     """
-    try:
-        list_products = [
-            await scrape_url_mercadona(MERCADONA_URL['pizza-atún']),
-            await scrape_url_carrefour(CARREFOUR_URL['pizza-atún']),
-            await scrape_url_el_jamon(EL_JAMON_URL['pizza-atún']),
-            await scrape_url_dia(DIA_URL['pizza-atún'])
-        ]
-        return list_products
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        async with httpx.AsyncClient(headers=HEADERS, verify=False) as client_el_jamon:
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+            try:
+                list_products: List[Product] = []
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL['pizza-atún'], logger=logger))
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL['pizza-atún'], logger=logger))
+                list_products.append(await scrape_url_el_jamon(client=client_el_jamon, url=EL_JAMON_URL['pizza-atún'], logger=logger))
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL['pizza-atún'], logger=logger))
+                end_time = time.time()
+                logger.info(f'Time to scrape pizza-atún: {end_time - start_time}')
+                return list_products
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
