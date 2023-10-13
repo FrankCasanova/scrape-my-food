@@ -1,5 +1,6 @@
 from typing import List, Dict
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from model import *
 from scraper import *
 import asyncio
@@ -8,10 +9,24 @@ from config import *
 import logging
 import time
 
+# origins = [
+#     "http://127.0.0.1:5500",  # Asegúrate de cambiar esto a tus propios orígenes
+# ]
+
+
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],	
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    
+)
 
 @app.get("/mercadona",
     status_code=200,
@@ -293,6 +308,5 @@ async def get_pizza_atun():
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run('main:app', host="127.0.0.2", port=8000, reload=True)
+
+    
