@@ -310,3 +310,31 @@ async def get_pizza_atun():
 
 
     
+@app.get('/pechuga-pollo', response_model=List[Product])
+async def get_pechuga_pollo():
+    """
+    Returns a list of `Product` models containing the title, price, and price per kilo
+    of the "pechuga-pollo" from all supermarkets.
+    Raises:
+        HTTPException: If the scraping process fails.
+    Returns:
+        List[Product]: A list of `Product` models.
+    """
+    start_time = time.time()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        async with httpx.AsyncClient(headers=HEADERS, verify=False) as client_el_jamon:
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/detalle/-/Producto/picos-finos-integrales-250g/23025302')
+            await client_el_jamon.get('https://www.supermercadoseljamon.com/delegate/seleccionarCodPostalAjaxServletFood?accion=enviarCodPostal&cp=21004&locale=es')
+            try:
+                list_products: List[Product] = []
+                client.headers.update(HEADERS_MERCADONA)
+                list_products.append(await scrape_url_mercadona(client=client, url=MERCADONA_URL['pechuga-pollo'], logger=logger))
+                client.headers.update(HEADERS)
+                list_products.append(await scrape_url_carrefour(client=client, url=CARREFOUR_URL['pechuga-pollo'], logger=logger))
+                list_products.append(await scrape_url_el_jamon(client=client_el_jamon, url=EL_JAMON_URL['pechuga-pollo'], logger=logger))
+                list_products.append(await scrape_url_dia(client=client, url=DIA_URL['pechuga-pollo'], logger=logger))
+                end_time = time.time()
+                logger.info(f'Time to scrape pechuga-pollo: {end_time - start_time}')
+                return list_products
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))

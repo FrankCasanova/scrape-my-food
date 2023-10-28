@@ -10,9 +10,10 @@ playwright = "*"
 fastapi = "*"
 uvicorn = "*"
 gunicorn = "*"
+pre-commit = "*"
 
 [dev-packages]
 ipykernel = "*"
 
 [requires]
-python_version = "3.11"
+python_version = "3.11.5"

@@ -32,18 +32,21 @@ async def scrape_url_el_jamon(client: httpx.AsyncClient, url: str, logger: loggi
         
         price_rebajado = parser.css_first("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > span")
         price_original = parser.css_first("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-original > span")
+        price_kg_original = parser.css_first("div.texto-porKilo")
+        price_kg_rebajado = parser.css_first("#_DetalleProductoFoodPortlet_WAR_comerzziaportletsfood_frmDatos > div.wrapp-detalle-precio > div.wrap-dp.dp-oferta > div")
         
         if price_rebajado:
             price = price_rebajado.text()
+            price_kg = price_kg_rebajado.text()
         else:
             price = price_original.text()
+            price_kg = price_kg_original.text()
         
         price = re.findall(r'\d+,\d+', price)
-        
-        price_kg = parser.css_first('div.texto-porKilo').text()
         price_kg = re.findall(r'\d+,\d+', price_kg)
             
         product = Product(
+            store='https://www.supermercadoseljamon.com',
             title=title,
             price=price[0],
             price_kg=price_kg[0]
@@ -83,6 +86,7 @@ async def scrape_url_dia(client: httpx.AsyncClient, url: str, logger: logging.Lo
         price_kg = parser.css_first('p.buy-box__price-per-unit').text().strip()
         price_kg = re.findall(r'\d+,\d+', price_kg)
         product = Product(
+            store='https://www.dia.es',
             title=title,
             price=price[0],
             price_kg=price_kg[0]
@@ -117,7 +121,12 @@ async def scrape_url_carrefour(client: httpx.AsyncClient, url: str, logger: logg
         price = re.findall(r'\d+,\d+', price)
         price_kg = parser.css_first('div.buybox__price-per-unit').text().strip()
         price_kg = re.findall(r'\d+,\d+', price_kg)
-        product = Product(title=title, price=price[0], price_kg=price_kg[0])
+        product = Product(
+            store='https://www.carrefour.es',
+            title=title,
+            price=price[0],
+            price_kg=price_kg[0]
+            )
     except Exception as e:
         logger.error(f'Error scraping product: {e}')
         product = Product(title='Not available', price='Not available', price_kg='Not available')
@@ -150,6 +159,7 @@ async def scrape_url_mercadona(client: httpx.AsyncClient, url: str, logger: logg
         price_kg = 'Not available'
 
     product = Product(
+        store='https://www.mercadona.es',
         title=title,
         price=price,
         price_kg=price_kg
